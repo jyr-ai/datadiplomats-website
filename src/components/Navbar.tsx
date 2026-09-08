@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Logo } from './Logo';
-import { ArrowRight, Menu, X, Shield, Sparkles } from 'lucide-react';
+import { ArrowRight, Menu, X, Shield, Sparkles, FileSpreadsheet } from 'lucide-react';
 
 interface NavbarProps {
   onOpenConsultation: () => void;
   onExploreArchitecture: () => void;
+  onOpenGoogleSheets?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenConsultation,
   onExploreArchitecture,
+  onOpenGoogleSheets,
 }) => {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -96,6 +98,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Ethics Charter
               </a>
               <a
+                href="#google-sheets"
+                onClick={(e) => {
+                  if (onOpenGoogleSheets) {
+                    e.preventDefault();
+                    onOpenGoogleSheets();
+                  }
+                }}
+                className="text-slate-700 hover:text-[#FF6B35] transition-colors py-1 relative group inline-flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Google Sheets</span>
+                <span className="text-[9px] uppercase font-mono px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 font-bold">
+                  Sync
+                </span>
+              </a>
+              <a
                 href="#leadership"
                 className="text-slate-700 hover:text-[#FF6B35] transition-colors py-1 relative group"
               >
@@ -166,6 +184,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="px-3 py-2 rounded-md hover:bg-slate-100"
               >
                 Ethics & Beneficiary Privacy
+              </a>
+              <a
+                href="#google-sheets"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  if (onOpenGoogleSheets) onOpenGoogleSheets();
+                }}
+                className="px-3 py-2 rounded-md hover:bg-slate-100 flex items-center justify-between text-emerald-700"
+              >
+                <div className="flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span>Google Sheets Hub</span>
+                </div>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-100 font-bold text-emerald-800">
+                  Live
+                </span>
               </a>
               <a
                 href="#leadership"

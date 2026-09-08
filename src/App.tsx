@@ -7,6 +7,7 @@ import { Approach } from './components/Approach';
 import { ArchitectureExplorer } from './components/ArchitectureExplorer';
 import { EthicsCharter } from './components/EthicsCharter';
 import { Leadership } from './components/Leadership';
+import { SheetsHub } from './components/SheetsHub';
 import { ContactSection } from './components/ContactSection';
 import { Footer } from './components/Footer';
 
@@ -24,6 +25,7 @@ export default function App() {
       <Navbar
         onOpenConsultation={() => scrollToSection('contact')}
         onExploreArchitecture={() => scrollToSection('architecture')}
+        onOpenGoogleSheets={() => scrollToSection('google-sheets')}
       />
 
       {/* Main Content Area */}
@@ -52,6 +54,9 @@ export default function App() {
 
         {/* Leadership, Fellows & FAQ */}
         <Leadership />
+
+        {/* Google Sheets Integration: Civic Data & Architecture Ledger */}
+        <SheetsHub />
 
         {/* Contact & Consultation Scheduler */}
         <ContactSection />

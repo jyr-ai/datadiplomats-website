@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { SECTOR_BLUEPRINTS } from '../data/blueprints';
-import { Sparkles, ArrowRight, ShieldCheck, Check, Layers, Cpu, Clock, HelpCircle, Download, Copy, CheckCheck } from 'lucide-react';
+import { Sparkles, ArrowRight, ShieldCheck, Check, Layers, Cpu, Clock, HelpCircle, Download, Copy, CheckCheck, FileSpreadsheet, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getAccessToken, googleSignIn } from '../lib/googleAuth';
+import { listSpreadsheets, createSpreadsheet, appendRow } from '../lib/sheetsService';
+import { WorkspaceConfirmModal } from './WorkspaceConfirmModal';
 
 interface ArchitectureExplorerProps {
   onOpenConsultation: () => void;
@@ -12,6 +15,12 @@ export const ArchitectureExplorer: React.FC<ArchitectureExplorerProps> = ({ onOp
   const [selectedPainPointIndex, setSelectedPainPointIndex] = useState(0);
   const [staffSize, setStaffSize] = useState<number>(15);
   const [copied, setCopied] = useState(false);
+  
+  // Google Sheets Export State
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportSuccessUrl, setExportSuccessUrl] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [exportStatusText, setExportStatusText] = useState<string>('');
 
   const currentSector = SECTOR_BLUEPRINTS[selectedSectorIndex];
   const currentPainPoint = currentSector.painPoints[selectedPainPointIndex] || currentSector.painPoints[0];
@@ -19,6 +28,69 @@ export const ArchitectureExplorer: React.FC<ArchitectureExplorerProps> = ({ onOp
   // Calculated dynamic impact based on staff size
   const calculatedHoursSaved = Math.round(staffSize * 3.5 * 4.3); // hours/month
   const calculatedDollarSavings = Math.round(calculatedHoursSaved * 42); // at $42/hr non-profit staff rate
+
+  const handleStartExport = async () => {
+    let token = await getAccessToken();
+    if (!token) {
+      try {
+        const res = await googleSignIn();
+        if (!res) return;
+        token = res.accessToken;
+      } catch (err) {
+        console.error('Sign-in cancelled or failed:', err);
+        return;
+      }
+    }
+    // Open explicit user confirmation dialog required by Google Workspace guidelines
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmExport = async () => {
+    setIsExporting(true);
+    setShowConfirmModal(false);
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        throw new Error('No active Google authentication token available');
+      }
+
+      const files = await listSpreadsheets(token);
+      const ledgerTitle = 'Civic AI Architecture & ROI Ledger';
+      const existing = files.find(f => f.name.toLowerCase() === ledgerTitle.toLowerCase());
+
+      const rowValues = [
+        new Date().toISOString().split('T')[0],
+        currentSector.sector,
+        `${staffSize} staff`,
+        currentPainPoint.title,
+        currentPainPoint.suggestedModel,
+        currentPainPoint.privacyTier,
+        `${calculatedHoursSaved} hrs/mo`,
+        `$${calculatedDollarSavings.toLocaleString()}/mo`
+      ];
+
+      if (existing) {
+        await appendRow(token, existing.id, 'AI Blueprints', rowValues);
+        setExportSuccessUrl(existing.webViewLink || '#google-sheets');
+        setExportStatusText(`Appended blueprint to "${existing.name}"`);
+      } else {
+        const created = await createSpreadsheet(
+          token,
+          ledgerTitle,
+          'AI Blueprints',
+          ['Date Created', 'Organization Sector', 'Team Size', 'Core Bottleneck', 'Model Tier', 'Privacy Architecture', 'Est. Monthly Hours Saved', 'Annual Philanthropic Value ($)'],
+          [rowValues]
+        );
+        setExportSuccessUrl(created.webViewLink || '#google-sheets');
+        setExportStatusText(`Created new spreadsheet "${ledgerTitle}" in Google Drive`);
+      }
+    } catch (err: any) {
+      console.error('Export to Google Sheets failed:', err);
+      setExportStatusText(err.message || 'Failed to export to Google Sheets');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleCopyBlueprint = () => {
     const blueprintText = `--- NON-PROFIT AI SYSTEM BLUEPRINT ---
@@ -193,24 +265,57 @@ https://ais-dev-tu57qjas5btjythdqg52kt-585790079879.us-east1.run.app`;
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCopyBlueprint}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  {copied ? (
-                    <>
-                      <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy Blueprint</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleStartExport}
+                    disabled={isExporting}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-700/60 text-emerald-300 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                    title="Export this architecture ledger directly to Google Sheets"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{isExporting ? 'Exporting...' : 'Export to Sheets'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyBlueprint}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copied ? (
+                      <>
+                        <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Blueprint</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
+
+              {exportStatusText && (
+                <div className="p-3 rounded-xl bg-emerald-900/40 border border-emerald-700/60 flex items-center justify-between text-xs text-emerald-200">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span>{exportStatusText}</span>
+                  </div>
+                  {exportSuccessUrl && exportSuccessUrl !== '#google-sheets' && (
+                    <a
+                      href={exportSuccessUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-emerald-300 font-bold hover:underline flex items-center gap-1 ml-2"
+                    >
+                      <span>Open Sheet</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Blueprint Title & Architecture Type */}
               <div>
@@ -288,6 +393,31 @@ https://ais-dev-tu57qjas5btjythdqg52kt-585790079879.us-east1.run.app`;
         </div>
 
       </div>
+
+      {/* Confirmation modal for exporting data to Google Sheets */}
+      <WorkspaceConfirmModal
+        isOpen={showConfirmModal}
+        title="Export AI Blueprint to Google Sheets?"
+        description={`This will write the current architecture configuration (${currentSector.sector} · ${currentPainPoint.title}) into your Google Sheet ledger "Civic AI Architecture & ROI Ledger".`}
+        actionType="append"
+        confirmLabel="Confirm Export to Sheets"
+        confirmVariant="orange"
+        details={{
+          spreadsheetTitle: 'Civic AI Architecture & ROI Ledger',
+          sheetTab: 'AI Blueprints',
+          items: [
+            `Sector: ${currentSector.sector}`,
+            `Bottleneck: ${currentPainPoint.title}`,
+            `Model Tier: ${currentPainPoint.suggestedModel}`,
+            `Privacy: ${currentPainPoint.privacyTier}`,
+            `Staff: ${staffSize} members (~${calculatedHoursSaved} hrs/mo)`
+          ],
+          affectedCount: 1
+        }}
+        isLoading={isExporting}
+        onConfirm={handleConfirmExport}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </section>
   );
 };
