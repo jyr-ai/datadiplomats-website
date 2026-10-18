@@ -114,8 +114,11 @@ export const Footer: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-6">
-            <a href="#ethics" className="hover:text-slate-400 transition-colors">
-              Beneficiary Privacy Policy
+            <a href="/privacy/" className="hover:text-slate-400 transition-colors">
+              Privacy Policy
+            </a>
+            <a href="/ai-policy/" className="hover:text-slate-400 transition-colors">
+              AI Policy
             </a>
             <a href="#ethics" className="hover:text-slate-400 transition-colors">
               Zero-Retention Terms
